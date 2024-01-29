@@ -55,12 +55,17 @@ ENABLE_BLINKSTICK = True
 # Enable this for debugging the hotkey, it will show every key that's caught.
 SHOW_ALL_KEYS = False
 
+# When this is True, it will type the resulting text on your keyboard. Set to False if you only want to see the results in the console.
+ENABLE_TYPING = True
+
+
+
 import os
 import sys
 import time
 import atexit
 
-from pynput import keyboard     # To emulate typing keypresses
+from pynput import keyboard     # To wait for hotkeys, and to emulate typing keypresses
 
 from microphone import RecordingFile
 
@@ -145,13 +150,16 @@ def performSpeechRecOnFile(wav_filename):
         n = len(segments)
         if n > 0:
             result = segments[0].text
+            # Remove initial whitespace
+            if result.startswith(" "):
+                result = result[1:]
 
         # If there are multiple sentences, perform some post-processing to merge the sentences.
         i = 1  # Loop but skip the first sentence
         while i < n:
             sentence = segments[i].text
             # Remove initial whitespace
-            if sentence[0].startswith(" "):
+            if sentence.startswith(" "):
                 sentence = sentence[1:]
             # Capitalise the sentence
             sentence = sentence[0].upper() + sentence[1:]
@@ -164,13 +172,26 @@ def performSpeechRecOnFile(wav_filename):
 
 
     print("[Inference clock time:", '{0:.3f}'.format(elapsed_inference), "seconds]")
-    print("RESULT: ", result)
+    return result
+
+
+def typeOnKeyboard(phrase):
+    keyb = keyboard.Controller()
+    for character in phrase:
+        try:
+            keyb.type(character)
+            time.sleep(0.0025)
+        except:
+            print("Empty or unknown symbol", character)
+            continue
+
 
 
 # Keep the mic recording device open at all times, for faster starting & stopping    
 rec_file = RecordingFile()
 file_counter = 0
 wav_filename = ""
+
 
 def startDictation():
     global rec_file
@@ -190,12 +211,18 @@ def stopDictation():
     global wav_filename
 
     #os.system("/Core/Custom/switch_mic_to_kaldi_from_talon.sh")
+
+    # Save the file
     duration = rec_file.stop_recording()
-    file_counter = file_counter + 1
+    #file_counter = file_counter + 1   # Do we want to record into a new file each time?
     print("Saved", '{0:.3f}'.format(duration), "seconds into '" + wav_filename + "'.")
 
     # Perform speech recognition on the saved wav file
-    performSpeechRecOnFile(wav_filename)
+    result = performSpeechRecOnFile(wav_filename)
+
+    if ENABLE_TYPING:
+        typeOnKeyboard(result)
+
 
 
 # Hotkey listening functionality, taken from my "_dictation_mode.py" file.
