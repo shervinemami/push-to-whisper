@@ -26,6 +26,7 @@ MIC_DEVICE_INDEX = None
 
 
 # Whisper speech recognition settings
+model_filename = "medium.en"    # Can be "tiny", "small", "medium", "large-v3"
 COMPUTE_DEVICE = "cuda"         # Can be "cuda" (NVIDIA GPU) or "cpu" (any other scenario)
 COMPUTE_TYPE = "int8_float16"   # Can be "float32", "float16", "int16", "int8_float16", "int8", and possibly "bfloat16"
 LANGUAGE = "en"                 # Set to the Whisper language name. eg: "en" for English, "fr" for French
@@ -70,9 +71,8 @@ from pynput import keyboard     # To wait for hotkeys, and to emulate typing key
 from microphone import RecordingFile
 
 
-# OpenAI Whisper model
-model_filename = "medium.en"
-print("Please wait while we load model '" + model_filename + "' during startup, this can take a long time.")
+# Load the OpenAI Whisper model
+print("Please wait while we load Whisper model '" + model_filename + "' during startup, this can take a long time ...")
 model = None
 # Load either Faster-Whisper or OpenAI Whisper
 if USE_FASTER_WHISPER:
@@ -228,20 +228,20 @@ def stopDictation():
 # Hotkey listening functionality, taken from my "_dictation_mode.py" file.
 # A blocking function that can be used as a thread function callback if desired.
 def setupHotkeysForBackends_blocking(arg):
-    print("Waiting for global hotkeys that switch recognition backends ...")
+    print("You can now start pressing the hotkeys!")
 
     # This function is unused because we use on_press & on_release directly. But it's left here for compilation purposes
     def on_activate():
-        print('Global hotkey activated!')
+        print('Global hotkey activated')
 
     def key_pressed(a):
         if SHOW_ALL_KEYS:
-            print('key pressed!', a)
+            print('key pressed:', a)
         # If the user is holding down the NumLock (Num Lock) key, switch to Dictation mode.
         if a == keyboard.Key.num_lock:
             updateLED("Normal")
             print()
-            print('Global dictation-mode hotkey pressed!', a)
+            print('Global dictation-mode hotkey pressed:', a)
             startDictation()
 
     def key_released(a):
@@ -250,7 +250,7 @@ def setupHotkeysForBackends_blocking(arg):
         # If the user released the NumLock (Num Lock) key, switch back to Command mode.
         if a == keyboard.Key.num_lock:
             updateLED("Command")
-            print('Global dictation-mode hotkey released!', a)
+            print('Global dictation-mode hotkey released:', a)
             stopDictation()
 
         #elif a == keyboard.Key.num_lock:
@@ -284,7 +284,7 @@ def main(args):
 
     # Since the first invocation of Whisper is significantly slower than others,
     # let's transcribe some initial data just to warm up Whisper.
-    print("Initialising OpenAI Whisper")
+    print("Initialising OpenAI Whisper ...")
     performSpeechRecOnFile("ready.wav")
     updateLED("Yellow")
 
