@@ -128,6 +128,12 @@ def performSpeechRecOnFile(wav_filename):
         # Print the recognition result
         print("  --> ", decoder_result.text)
         result = decoder_result.text
+        # Remove initial whitespace
+        if result.startswith(" "):
+            result = result[1:]
+        # Remove trailing "..." that Whisper sometimes includes at the end
+        if result.endswith("..."):
+            result = result[:-2]
 
     else:
         start_inference = time.perf_counter()
@@ -155,6 +161,9 @@ def performSpeechRecOnFile(wav_filename):
             # Remove initial whitespace
             if result.startswith(" "):
                 result = result[1:]
+            # Remove trailing "..." that Whisper sometimes includes at the end
+            if result.endswith("..."):
+                result = result[:-2]
 
         # If there are multiple sentences, perform some post-processing to merge the sentences.
         i = 1  # Loop but skip the first sentence
@@ -167,6 +176,9 @@ def performSpeechRecOnFile(wav_filename):
             sentence = sentence[0].upper() + sentence[1:]
             # Begin the sentence with a fullstop and a space
             sentence = ". " + sentence
+            # Remove trailing "..." that Whisper sometimes includes at the end
+            if sentence.endswith("..."):
+                sentence = sentence[:-2]
 
             # Combine the modified sentences
             result = result + sentence
