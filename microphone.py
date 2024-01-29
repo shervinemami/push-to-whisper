@@ -10,6 +10,7 @@ MIC_DEVICE_INDEX = None
 import sys
 import pyaudio              # For audio from microphone
 import wave                 # For saving to a wav file
+import time                 # For tracking the recording length
 
 
 CHUNK = 1024                # Record chunks of audio samples to improve efficiency
@@ -34,6 +35,8 @@ class RecordingFile(object):
         self._pa = pyaudio.PyAudio()
         print()   # On some systems, initialising PortAudio causes a large amount of text messages to be displayed.
         self._stream = None
+        self.time_start = None
+        self.time_end = None
 
     def __enter__(self):
         return self
@@ -60,11 +63,14 @@ class RecordingFile(object):
                                         input=True, frames_per_buffer=self.frames_per_buffer,
                                         stream_callback=self.get_callback())
         self._stream.start_stream()
+        self.time_start = time.perf_counter()
         return self
 
     def stop_recording(self):
+        # Returns the elapsed recording time, in seconds.
         self._stream.stop_stream()
-        return self
+        self.time_end = time.perf_counter()
+        return self.time_end - self.time_start
 
     def get_callback(self):
         # Wraps a pyaudio callback function where we save the latest data
