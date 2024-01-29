@@ -70,6 +70,10 @@ class RecordingFile(object):
         # Returns the elapsed recording time, in seconds.
         self._stream.stop_stream()
         self.time_end = time.perf_counter()
+        # Let's close our stream and wavfile, since we've moved the _prepare_file into start_recording.
+        # If we don't close the stream, each recording will cause an additional stream to stay alive without closing!
+        self._stream.close()
+        self.wavefile.close()
         return self.time_end - self.time_start
 
     def get_callback(self):

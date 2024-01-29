@@ -28,12 +28,14 @@ MIC_DEVICE_INDEX = None
 # Whisper speech recognition settings
 model_filename = "medium.en"    # Can be "tiny", "small", "medium", "large-v3"
 COMPUTE_DEVICE = "cuda"         # Can be "cuda" (NVIDIA GPU) or "cpu" (any other scenario)
+#COMPUTE_DEVICE = "cpu"         # Can be "cuda" (NVIDIA GPU) or "cpu" (any other scenario)
 COMPUTE_TYPE = "int8_float16"   # Can be "float32", "float16", "int16", "int8_float16", "int8", and possibly "bfloat16"
+#COMPUTE_TYPE = "int8"           # Can be "float32", "float16", "int16", "int8_float16", "int8", and possibly "bfloat16"
 LANGUAGE = "en"                 # Set to the Whisper language name. eg: "en" for English, "fr" for French
-BEAM_SIZE = 3 #5                   # Note: Faster-Whisper requires beam_size to be atleast 1, while OpenAI Whisper can take "None"
-BEST_OF = 3 #5
-TEMPERATURE = 0.5 #0.3
-PATIENCE = 1.5 #1.0    # Must be larger than 0
+BEAM_SIZE = 5                   # Note: Faster-Whisper requires beam_size to be atleast 1, while OpenAI Whisper can take "None"
+BEST_OF = 5
+TEMPERATURE = 0.3
+PATIENCE = 1.0                  # Must be larger than 0
 
 # Set to True if you want it to try using faster-whisper instead of OpenAI whisper.
 USE_FASTER_WHISPER = True
@@ -191,17 +193,26 @@ def typeOnKeyboard(phrase):
 rec_file = RecordingFile()
 file_counter = 0
 wav_filename = ""
+recognitions_in_progress = 0    # A counter of how many recognitions are currently in progress. Should usually be 0 or 1.
 
 
 def startDictation():
     global rec_file
     global file_counter
     global wav_filename
+    global recognitions_in_progress
 
-    #os.system("/Core/Custom/switch_mic_to_talon_from_kaldi.sh")
+    # Mute the mic for my other speech recognition system, since we want to handle the mic instead.
+    #try:
+    #    os.system("/Core/Custom/mute_kaldi.sh")
+    #except:
+    #    pass
+
+    if recognitions_in_progress > 0:
+        print("User is trying to record something while recognition is still running. We'll move to a separate audio file.")
 
     # Start recording the mic audio into our wav file
-    wav_filename = "recording" + str(file_counter) + ".wav"
+    wav_filename = "recording" + str(recognitions_in_progress) + ".wav"
     print("Recording to '" + wav_filename + "'...")
     rec_file.start_recording(wav_filename)
 
@@ -209,19 +220,30 @@ def stopDictation():
     global rec_file
     global file_counter
     global wav_filename
+    global recognitions_in_progress
 
-    #os.system("/Core/Custom/switch_mic_to_kaldi_from_talon.sh")
+    recognitions_in_progress = recognitions_in_progress + 1
+    # Keep a local copy of the value for this iteration. If the user runs dictation during recognition, the global value will change.
+    this_wav_filename = wav_filename
 
     # Save the file
     duration = rec_file.stop_recording()
     #file_counter = file_counter + 1   # Do we want to record into a new file each time?
-    print("Saved", '{0:.3f}'.format(duration), "seconds into '" + wav_filename + "'.")
+    print("Saved", '{0:.3f}'.format(duration), "seconds into '" + this_wav_filename + "'.")
+
+    # Unmute the mic for my other speech recognition system, since we are done for now.
+    #try:
+    #    os.system("/Core/Custom/unmute_kaldi.sh")
+    #except:
+    #    pass
 
     # Perform speech recognition on the saved wav file
-    result = performSpeechRecOnFile(wav_filename)
+    result = performSpeechRecOnFile(this_wav_filename)
 
     if ENABLE_TYPING:
         typeOnKeyboard(result)
+
+    recognitions_in_progress = recognitions_in_progress - 1    
 
 
 
