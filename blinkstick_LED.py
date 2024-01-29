@@ -32,6 +32,8 @@ def updateLED(grammarMode = "Normal"):
                 bstick.set_color(red=0, green=V, blue=0)
             elif grammarMode == "Yellow":
                 bstick.set_color(red=V, green=V, blue=0)
+            elif grammarMode == "Orange":
+                bstick.set_color(red=V, green=V/3, blue=0)
             elif grammarMode == "Pink":
                 bstick.set_color(red=V*1.2, green=V/3, blue=V/2.5)
             elif grammarMode == "BlueGreen":

@@ -252,6 +252,15 @@ def stopDictation():
     # Perform speech recognition on the saved wav file
     result = performSpeechRecOnFile(this_wav_filename)
 
+    # Check if we have a lot of generated text from a very short audio recording, since this usually means Whisper
+    # has been hallucinating. Also check if the number of characters per second is higher than 100 characters per second.
+    #if (len(result) > 80 and duration < 5)
+    chars_per_second = len(result) / duration
+    if chars_per_second > 100 and len(result) > 80:
+        result = ""
+        print("Detected hallucination!")
+        updateLED("Orange")    # Show the LED as Orange to signify a hallucination
+
     if ENABLE_TYPING:
         typeOnKeyboard(result)
 
