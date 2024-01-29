@@ -29,10 +29,10 @@ MIC_DEVICE_INDEX = None
 COMPUTE_DEVICE = "cuda"         # Can be "cuda" (NVIDIA GPU) or "cpu" (any other scenario)
 COMPUTE_TYPE = "int8_float16"   # Can be "float32", "float16", "int16", "int8_float16", "int8", and possibly "bfloat16"
 LANGUAGE = "en"                 # Set to the Whisper language name. eg: "en" for English, "fr" for French
-BEAM_SIZE = 5                   # Note: Faster-Whisper requires beam_size to be atleast 1, while OpenAI Whisper can take "None"
-BEST_OF = 5
-TEMPERATURE = 0.3
-PATIENCE = 1.0
+BEAM_SIZE = 3 #5                   # Note: Faster-Whisper requires beam_size to be atleast 1, while OpenAI Whisper can take "None"
+BEST_OF = 3 #5
+TEMPERATURE = 0.5 #0.3
+PATIENCE = 1.5 #1.0    # Must be larger than 0
 
 # Set to True if you want it to try using faster-whisper instead of OpenAI whisper.
 USE_FASTER_WHISPER = True
@@ -140,8 +140,31 @@ def performSpeechRecOnFile(wav_filename):
         for segment in segments:
             print("  --> ", segment.text)
 
+        # Convert the multiple sentences into a single output string.
+
+        n = len(segments)
+        if n > 0:
+            result = segments[0].text
+
+        # If there are multiple sentences, perform some post-processing to merge the sentences.
+        i = 1  # Loop but skip the first sentence
+        while i < n:
+            sentence = segments[i].text
+            # Remove initial whitespace
+            if sentence[0].startswith(" "):
+                sentence = sentence[1:]
+            # Capitalise the sentence
+            sentence = sentence[0].upper() + sentence[1:]
+            # Begin the sentence with a fullstop and a space
+            sentence = ". " + sentence
+
+            # Combine the modified sentences
+            result = result + sentence
+            i = i+1
+
+
     print("[Inference clock time:", '{0:.3f}'.format(elapsed_inference), "seconds]")
-    #print("RESULT: ", result)
+    print("RESULT: ", result)
 
 
 # Keep the mic recording device open at all times, for faster starting & stopping    
