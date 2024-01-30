@@ -102,20 +102,32 @@ if not ENABLE_BLINKSTICK:
         pass
 
 
-# Clean up a sentence. If index > 0, also place a fullstop at the begining.
-def postprocessSentence(text, index):
+# Clean up a sentence.
+def postprocessSentence(text):
     sentence = text
     # Remove initial whitespace
     if sentence.startswith(" "):
         sentence = sentence[1:]
+    # Remove ending whitespace
+    if sentence.endswith(" "):
+        sentence = sentence[:-1]
     # Capitalise the sentence
     sentence = sentence[0].upper() + sentence[1:]
-    if index > 0:
-        # Begin the sentence with a fullstop and a space
-        sentence = ". " + sentence
     # Remove trailing "..." that Whisper sometimes includes at the end
     if sentence.endswith("..."):
-        sentence = sentence[:-2]
+        sentence = sentence[:-3]
+    # Make sure it ends with a fullstop or question mark or exclamation mark, followed by a space,
+    # to easily follow up with more dictation. Whisper is usually inconsistent about this.
+    if not sentence.endswith("?") and not sentence.endswith("!") and not sentence.endswith(".") and not sentence.endswith(","):
+        sentence = sentence + "."
+    # Always end with a space
+    sentence = sentence + " "
+
+    # If the previous sentence didn't end with a question mark or exclamation mark, begin this
+    # sentence with a fullstop and a space
+    #if "?" not in result[-1] and "!" not in result[-1]:
+    #    sentence = ". " + sentence
+
     return sentence
 
 
@@ -145,7 +157,7 @@ def performSpeechRecOnFile(wav_filename):
         # Print the recognition result
         print("  --> ", decoder_result.text)
         # Clean up the sentence.
-        result = postprocessSentence(decoder_result.text, 0)
+        result = postprocessSentence(decoder_result.text)
 
     else:
         start_inference = time.perf_counter()
@@ -169,13 +181,16 @@ def performSpeechRecOnFile(wav_filename):
 
         n = len(segments)
         if n > 0:
-            # Clean up a sentence. If index > 0, also place a fullstop at the begining.
-            result = postprocessSentence(segments[0].text, 0)
+            # Clean up the sentence.
+            result = postprocessSentence(segments[0].text)
 
         # If there are multiple sentences, perform some post-processing to merge the sentences.
         i = 1  # Loop but skip the first sentence
         while i < n:
-            sentence = postprocessSentence(segments[i].text, i)
+            sentence = postprocessSentence(segments[i].text)
+            ## If the previous sentence didn't end with a question mark or exclamation mark, begin this sentence with a fullstop and a space
+            #if "?" not in result[-1] and "!" not in result[-1]:
+            #    sentence = ". " + sentence
             # Combine the modified sentences
             result = result + sentence
             i = i+1
