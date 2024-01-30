@@ -102,6 +102,23 @@ if not ENABLE_BLINKSTICK:
         pass
 
 
+# Clean up a sentence. If index > 0, also place a fullstop at the begining.
+def postprocessSentence(text, index):
+    sentence = text
+    # Remove initial whitespace
+    if sentence.startswith(" "):
+        sentence = sentence[1:]
+    # Capitalise the sentence
+    sentence = sentence[0].upper() + sentence[1:]
+    if index > 0:
+        # Begin the sentence with a fullstop and a space
+        sentence = ". " + sentence
+    # Remove trailing "..." that Whisper sometimes includes at the end
+    if sentence.endswith("..."):
+        sentence = sentence[:-2]
+    return sentence
+
+
 # Perform speech recognition on the saved wav file
 def performSpeechRecOnFile(wav_filename):
     # Decode the audio
@@ -127,13 +144,8 @@ def performSpeechRecOnFile(wav_filename):
 
         # Print the recognition result
         print("  --> ", decoder_result.text)
-        result = decoder_result.text
-        # Remove initial whitespace
-        if result.startswith(" "):
-            result = result[1:]
-        # Remove trailing "..." that Whisper sometimes includes at the end
-        if result.endswith("..."):
-            result = result[:-2]
+        # Clean up the sentence.
+        result = postprocessSentence(decoder_result.text, 0)
 
     else:
         start_inference = time.perf_counter()
@@ -157,29 +169,13 @@ def performSpeechRecOnFile(wav_filename):
 
         n = len(segments)
         if n > 0:
-            result = segments[0].text
-            # Remove initial whitespace
-            if result.startswith(" "):
-                result = result[1:]
-            # Remove trailing "..." that Whisper sometimes includes at the end
-            if result.endswith("..."):
-                result = result[:-2]
+            # Clean up a sentence. If index > 0, also place a fullstop at the begining.
+            result = postprocessSentence(segments[0].text, 0)
 
         # If there are multiple sentences, perform some post-processing to merge the sentences.
         i = 1  # Loop but skip the first sentence
         while i < n:
-            sentence = segments[i].text
-            # Remove initial whitespace
-            if sentence.startswith(" "):
-                sentence = sentence[1:]
-            # Capitalise the sentence
-            sentence = sentence[0].upper() + sentence[1:]
-            # Begin the sentence with a fullstop and a space
-            sentence = ". " + sentence
-            # Remove trailing "..." that Whisper sometimes includes at the end
-            if sentence.endswith("..."):
-                sentence = sentence[:-2]
-
+            sentence = postprocessSentence(segments[i].text, i)
             # Combine the modified sentences
             result = result + sentence
             i = i+1
@@ -198,7 +194,6 @@ def typeOnKeyboard(phrase):
         except:
             print("Empty or unknown symbol", character)
             continue
-
 
 
 # Keep the mic recording device open at all times, for faster starting & stopping    
