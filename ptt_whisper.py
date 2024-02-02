@@ -75,20 +75,19 @@ from microphone import RecordingFile
 
 # Load the OpenAI Whisper model
 print("Please wait while we load Whisper model '" + model_filename + "' during startup, this can take a long time ...")
-model = None
+whisper_model = None
 # Load either Faster-Whisper or OpenAI Whisper
 if USE_FASTER_WHISPER:
     try:
+        USE_FASTER_WHISPER = False   # Start by assuming there was a failure.
         from faster_whisper import WhisperModel
-        model = WhisperModel(model_filename, device=COMPUTE_DEVICE, compute_type=COMPUTE_TYPE, num_workers=NUM_FASTER_WHISPER_WORKERS)
-        # or run on CPU with INT8
-        # model = WhisperModel(model_filename, device="cpu", compute_type="int8", num_workers=num_workers)
+        whisper_model = WhisperModel(model_filename, device=COMPUTE_DEVICE, compute_type=COMPUTE_TYPE, num_workers=NUM_FASTER_WHISPER_WORKERS)
         USE_FASTER_WHISPER = True    # Only set the flag if we succesfully imported the library and opened the model.
-    except ImportError:
+    except:
         print("ERROR: faster_whisper not installed or not working, falling back to OpenAI whisper")
-if not USE_FASTER_WHISPER:
+if not USE_FASTER_WHISPER or not whisper_model:
     import whisper
-    model = whisper.load_model(model_filename)
+    whisper_model = whisper.load_model(model_filename)
 
 
 # Possibly show our mode on a BlinkStick USB LED, if enabled and available.
@@ -132,11 +131,11 @@ def postprocessSentence(text):
 
 
 # Perform speech recognition on the saved wav file
-def performSpeechRecOnFile(wav_filename):
+def performSpeechRecOnFile(audio_filename):
     # Decode the audio
     result = ""
     if not USE_FASTER_WHISPER:
-        audio = whisper.load_audio(wav_filename)
+        audio = whisper.load_audio(audio_filename)
 
         # Pad/trim it to fit 30 seconds just like the training set.
         audio = whisper.pad_or_trim(audio)
@@ -144,14 +143,14 @@ def performSpeechRecOnFile(wav_filename):
         start_inference = time.perf_counter()
 
         # Make log-mel spectrogram and move it to the same device as the model (GPU)
-        mel = whisper.log_mel_spectrogram(audio).to(model.device)
+        mel = whisper.log_mel_spectrogram(audio).to(whisper_model.device)
 
         # Decode using OpenAI Whisper.
         # Note that as of January 2024, OpenAI Whisper isn't optimised for FP16, so it's better to use FP32 mode.
         options = whisper.DecodingOptions(language=LANGUAGE, fp16=False, prompt=HINT_PROMPT, best_of=BEST_OF,
                                           beam_size=BEAM_SIZE, temperature=TEMPERATURE, patience=PATIENCE)
         # Perform the transcription now.
-        decoder_result = whisper.decode(model, mel, options)
+        decoder_result = whisper.decode(whisper_model, mel, options)
         elapsed_inference = time.perf_counter() - start_inference
 
         # Print the recognition result
@@ -166,7 +165,7 @@ def performSpeechRecOnFile(wav_filename):
         # Note that Faster-Whisper returns a generator and doesn't actually perform the transcription
         # until you use the 'segments' variable!
         # For more info about the options, see "https://github.com/SYSTRAN/faster-whisper/blob/master/faster_whisper/transcribe.py"
-        segments, info = model.transcribe(wav_filename, language=LANGUAGE, initial_prompt=HINT_PROMPT,
+        segments, info = whisper_model.transcribe(audio_filename, language=LANGUAGE, initial_prompt=HINT_PROMPT,
                                           condition_on_previous_text=False, best_of=BEST_OF, beam_size=BEAM_SIZE, temperature=TEMPERATURE, patience=PATIENCE, word_timestamps=False, vad_filter=vad_filter)
         # Perform the transcription now.
         segments = list(segments)
@@ -214,14 +213,14 @@ def typeOnKeyboard(phrase):
 # Keep the mic recording device open at all times, for faster starting & stopping    
 rec_file = RecordingFile()
 file_counter = 0
-wav_filename = ""
+audio_filename = ""
 recognitions_in_progress = 0    # A counter of how many recognitions are currently in progress. Should usually be 0 or 1.
 
 
 def startDictation():
     global rec_file
     global file_counter
-    global wav_filename
+    global audio_filename
     global recognitions_in_progress
 
     # Mute the mic for my other speech recognition system, since we want to handle the mic instead.
@@ -234,24 +233,24 @@ def startDictation():
         print("User is trying to record something while recognition is still running. We'll move to a separate audio file.")
 
     # Start recording the mic audio into our wav file
-    wav_filename = "recording" + str(recognitions_in_progress) + ".wav"
-    print("Recording to '" + wav_filename + "'...")
-    rec_file.start_recording(wav_filename)
+    audio_filename = "recording" + str(recognitions_in_progress) + ".wav"
+    print("Recording to '" + audio_filename + "'...")
+    rec_file.start_recording(audio_filename)
 
 def stopDictation():
     global rec_file
     global file_counter
-    global wav_filename
+    global audio_filename
     global recognitions_in_progress
 
     recognitions_in_progress = recognitions_in_progress + 1
     # Keep a local copy of the value for this iteration. If the user runs dictation during recognition, the global value will change.
-    this_wav_filename = wav_filename
+    this_audio_filename = audio_filename
 
     # Save the file
     duration = rec_file.stop_recording()
     #file_counter = file_counter + 1   # Do we want to record into a new file each time?
-    print("Saved", '{0:.3f}'.format(duration), "seconds into '" + this_wav_filename + "'.")
+    print("Saved", '{0:.3f}'.format(duration), "seconds into '" + this_audio_filename + "'.")
 
     # Unmute the mic for my other speech recognition system, since we are done for now.
     #try:
@@ -260,7 +259,7 @@ def stopDictation():
     #    pass
 
     # Perform speech recognition on the saved wav file
-    result = performSpeechRecOnFile(this_wav_filename)
+    result = performSpeechRecOnFile(this_audio_filename)
 
     # Ensure we had enough time to say a word
     if duration < 0.45:
